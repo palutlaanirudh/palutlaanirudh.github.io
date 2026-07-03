@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pipeline — Measure · Model · Evolve</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* base tokens (defined here so the file is self-contained, standalone or embedded) */
+  :root{
+    --display:"Fraunces",Georgia,serif;
+    --body:"Inter",system-ui,-apple-system,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --ease:cubic-bezier(.2,.7,.2,1);
+    --glow:#3fdd86;
+  }
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{ margin:0; background:transparent; }
+  body{ font-family:var(--body); }
+  :focus-visible{ outline:2px solid var(--glow); outline-offset:3px; border-radius:2px; }
+
+  /* ============================================================
+     LIGHTS-OFF — full-screen takeover that plays the pipeline
+     ============================================================ */
+  body.no-scroll{ overflow:hidden; }
+  .lights-overlay{
+    position:fixed; inset:0; z-index:100; pointer-events:none;
+    background:#06090a; opacity:0; transition:opacity .8s ease;
+    display:flex; align-items:center; justify-content:center; overflow:auto;
+    padding:2.4rem 1rem;
+  }
+  .lights-overlay.on{ opacity:1; pointer-events:auto; }
+  .lights-on-btn{
+    position:fixed; top:1.1rem; right:1.2rem; z-index:101;
+    font-family:var(--mono); font-size:.76rem; letter-spacing:.05em;
+    display:inline-flex; align-items:center; gap:.4rem;
+    background:rgba(8,12,11,.6); color:#cfe9d8;
+    border:1px solid rgba(125,240,173,.35); border-radius:7px;
+    padding:.5rem .85rem; cursor:pointer;
+    transition:border-color .2s, box-shadow .2s, color .2s;
+  }
+  .lights-on-btn:hover{ border-color:var(--glow); box-shadow:0 0 16px -4px rgba(63,221,134,.6); color:#fff; }
+
+  /* ============================================================
+     PIPELINE — the schematic (Measure / Model / Evolve).
+     Lives inside the lights-off overlay; tokens scoped to .pipeline
+     so the dark palette never leaks onto the light page.
+     ============================================================ */
+  .pipeline{
+    --bg:#0a0d0c; --panel:#0d1210; --line:rgba(170,200,185,.14);
+    --txt:#aebfb4; --txt-hi:#e2f1e8; --muted:#6f827a;
+    --glow:#3fdd86; --glow-hi:#7df0ad; --green-deep:#1f7a4d;
+    color:var(--txt); width:100%;
+  }
+  .lights-overlay .pipeline{ margin:auto; }
+  .lights-overlay .band{ width:min(1280px,94vw); margin-inline:auto; }
+  .pipeline .band{
+    display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:stretch; gap:0;
+  }
+  .pipeline .panel{ position:relative; padding:.4rem .2rem;
+    opacity:0; transform:translateY(14px); transition:opacity .55s var(--ease), transform .55s var(--ease); }
+  .pipeline .panel.on{ opacity:1; transform:none; }
+  .pipeline .panel__frame{
+    border:1px solid var(--line); border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,0));
+    height:100%; padding:1rem .8rem 1.1rem; position:relative; overflow:hidden;
+  }
+  .pipeline .panel__label{ font-family:var(--mono); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:.5rem; }
+  .pipeline .panel__label b{ color:var(--glow); font-weight:500; }
+  .pipeline .panel svg{ width:100%; height:auto; display:block; }
+  .pipeline svg text{ font-family:var(--mono); }
+  .pipeline .panel__caption{ font-family:var(--mono); font-size:.66rem; color:var(--muted); text-align:center; margin-top:.4rem; min-height:1em; }
+  .pipeline .conn{ display:flex; align-items:center; justify-content:center; width:44px; }
+  .pipeline .conn svg{ width:44px; height:24px; overflow:visible; }
+  .pipeline .conn path{ stroke:var(--green-deep); stroke-width:1.5; fill:none; }
+  .pipeline .lum-glow{ filter:drop-shadow(0 0 calc(var(--lum,0) * 20px) rgba(63,221,134, calc(.15 + var(--lum,0) * .75))); }
+  .pipeline .chip-glow{ filter:drop-shadow(0 0 calc(var(--g,0) * 13px) rgba(63,221,134, calc(var(--g,0) * .8))); }
+  .pipeline .box-glow{ filter:drop-shadow(0 0 calc(var(--bg2,0) * 14px) rgba(63,221,134, calc(var(--bg2,0) * .7))); }
+  @media (max-width:820px){
+    .pipeline .band{ grid-template-columns:1fr; gap:.4rem; }
+    .pipeline .conn{ width:auto; height:30px; }
+    .pipeline .conn svg{ transform:rotate(90deg); }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="lights-overlay" id="lightsOverlay" aria-hidden="true">
+  <button class="lights-on-btn" id="lightsClose" aria-label="Lights on">X</button>
+  <div class="pipeline" id="pipelineStage">
+    <div class="band" id="band">
+      <div class="panel" id="p1">
+        <div class="panel__frame">
+          <div class="panel__label"><b>01</b> · Measure</div>
+          <svg id="svg1" viewBox="0 0 300 360" aria-label="GCaMP binds calcium and fluoresces; fluorescence trace recorded below"></svg>
+          <div class="panel__caption" id="cap1"></div>
+        </div>
+      </div>
+
+      <div class="conn"><svg viewBox="0 0 44 24"><path id="cp1" d="M2,12 L34,12" /><path id="ch1" d="M28,6 L38,12 L28,18" /></svg></div>
+
+      <div class="panel" id="p2">
+        <div class="panel__frame">
+          <div class="panel__label"><b>02</b> · Model</div>
+          <svg id="svg2" viewBox="0 0 300 360" aria-label="Trace data feeds a surrogate model that predicts trace information"></svg>
+          <div class="panel__caption" id="cap2"></div>
+        </div>
+      </div>
+
+      <div class="conn"><svg viewBox="0 0 44 24"><path id="cp2" d="M2,12 L34,12" /><path id="ch2" d="M28,6 L38,12 L28,18" /></svg></div>
+
+      <div class="panel" id="p3">
+        <div class="panel__frame">
+          <div class="panel__label"><b>03</b> · Evolve</div>
+          <svg id="svg3" viewBox="0 0 300 360" aria-label="A starting sequence enters an in silico evolution loop that proposes mutations, predicts fitness with the nested surrogate model, and ranks them, outputting top-ranked variants"></svg>
+          <div class="panel__caption" id="cap3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   PIPELINE SCHEMATIC — modular, play-on-demand.
+   Each panel is a self-contained module (play/reset); ModelBox is a reusable
+   component shared by panels 2 and 3; the orchestrator just sequences them.
+   Wrapped in an IIFE so nothing leaks into the page's global scope.
+   =========================================================================== */
+(function(){
+  const NS = "http://www.w3.org/2000/svg";
+  const REDUCE = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function el(tag, attrs, parent){
+    const e = document.createElementNS(NS, tag);
+    if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const easeInOut = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+
+  /* cancellable clock so Replay can cleanly stop a running animation */
+  class Clock{
+    constructor(){ this.timers = new Set(); this.rafs = new Set(); }
+    sleep(ms){
+      return new Promise(res => {
+        const id = setTimeout(() => { this.timers.delete(id); res(); }, ms);
+        this.timers.add(id);
+      });
+    }
+    run(dur, onFrame, ease = t => t){
+      return new Promise(res => {
+        const t0 = performance.now();
+        const step = now => {
+          const p = Math.min(1, (now - t0) / dur);
+          onFrame(ease(p), p);
+          if (p < 1){ const r = requestAnimationFrame(step); this.rafs.add(r); }
+          else res();
+        };
+        const r = requestAnimationFrame(step); this.rafs.add(r);
+      });
+    }
+    cancelAll(){
+      this.timers.forEach(clearTimeout); this.timers.clear();
+      this.rafs.forEach(cancelAnimationFrame); this.rafs.clear();
+    }
+  }
+  const clock = new Clock();
+
+  /* fluorescence-trace generator: sum of skewed exponential transients */
+  function traceSamples(stims, tauR, tauD, n = 240, baseline = 0.05){
+    const raw = []; let mx = 0;
+    for (let i = 0; i <= n; i++){
+      const t = i / n; let v = baseline;
+      for (const s of stims){
+        if (t > s.t){ const dt = t - s.t; v += s.a * (1 - Math.exp(-dt / tauR)) * Math.exp(-dt / tauD); }
+      }
+      raw.push(v); if (v > mx) mx = v;
+    }
+    return raw.map(v => v / mx);
+  }
+  function tracePath(samples, x0, yBase, w, h){
+    let d = ""; const n = samples.length - 1;
+    for (let i = 0; i <= n; i++){
+      const x = x0 + (i / n) * w, y = yBase - samples[i] * h;
+      d += (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1) + " ";
+    }
+    return d;
+  }
+
+  /* ----- REUSABLE COMPONENT: the ML model box (panels 2 & 3) ----- */
+  function ModelBox(svg, cx, cy, w, h){
+    const x = cx - w/2, y = cy - h/2;
+    const g = el("g", { class:"box-glow" }, svg);
+    g.style.setProperty("--bg2", 0);
+    el("rect", { x, y, width:w, height:h, rx:14, fill:"#0e1714", stroke:"rgba(125,240,173,.30)", "stroke-width":1.2 }, g);
+    const cols = 3, rows = 3, pad = 16, gw = w - pad*2, gh = h - pad*2;
+    const nodes = [];
+    const pos = (c,r) => ({ x: x+pad + gw*(c/(cols-1)), y: y+pad + gh*(r/(rows-1)) });
+    for (let c=0;c<cols-1;c++) for (let r=0;r<rows;r++) for (let r2=0;r2<rows;r2++){
+      const a=pos(c,r), b=pos(c+1,r2);
+      el("line",{ x1:a.x,y1:a.y,x2:b.x,y2:b.y, stroke:"rgba(170,200,185,.12)", "stroke-width":.6 }, g);
+    }
+    for (let c=0;c<cols;c++) for (let r=0;r<rows;r++){
+      const p = pos(c,r);
+      const n = el("circle",{ cx:p.x, cy:p.y, r:3.4, fill:"#2c3a32", stroke:"rgba(125,240,173,.35)", "stroke-width":.8 }, g);
+      n.dataset.col = c; nodes.push(n);
+    }
+    el("text",{ x:cx, y:y+h-7, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8.5" }, g).textContent = "model";
+
+    function reset(){ g.style.setProperty("--bg2", 0); nodes.forEach(n => n.setAttribute("fill","#2c3a32")); }
+    async function pulse(dur = 850){
+      if (REDUCE){ g.style.setProperty("--bg2", .5); nodes.forEach(n=>n.setAttribute("fill","#54e792")); return; }
+      await clock.run(dur, (p) => {
+        g.style.setProperty("--bg2", Math.sin(p * Math.PI) * 0.9);
+        const wave = p * (cols + 0.5);
+        nodes.forEach(n => {
+          const c = +n.dataset.col, d = Math.abs(wave - (c + 0.5)), lit = Math.max(0, 1 - d*1.4);
+          n.setAttribute("fill", lit > .05
+            ? `rgb(${44+(84-44)*lit|0},${58+(231-58)*lit|0},${50+(146-50)*lit|0})` : "#2c3a32");
+        });
+      });
+      nodes.forEach(n => n.setAttribute("fill","#2c3a32"));
+      g.style.setProperty("--bg2", 0);
+    }
+    return { g, reset, pulse, cx, cy };
+  }
+
+  async function flowPulse(svg, x1,y1,x2,y2, dur=550){
+    if (REDUCE) return;
+    const dot = el("circle",{ cx:x1, cy:y1, r:3.2, fill:"#7df0ad" }, svg);
+    dot.style.filter = "drop-shadow(0 0 6px rgba(63,221,134,.9))";
+    await clock.run(dur, p => {
+      const e = easeInOut(p);
+      dot.setAttribute("cx", x1 + (x2-x1)*e);
+      dot.setAttribute("cy", y1 + (y2-y1)*e);
+      dot.setAttribute("opacity", p < .15 ? p/.15 : (p > .85 ? (1-p)/.15 : 1));
+    });
+    dot.remove();
+  }
+
+  /* animate a dot along an arbitrary path element (used for the evolve loop-back) */
+  async function flowAlongPath(svg, pathEl, dur = 700){
+    if (REDUCE) return;
+    const len = pathEl.getTotalLength();
+    const dot = el("circle",{ cx:0, cy:0, r:3, fill:"#7df0ad" }, svg);
+    dot.style.filter = "drop-shadow(0 0 6px rgba(63,221,134,.9))";
+    await clock.run(dur, p => {
+      const pt = pathEl.getPointAtLength(len * easeInOut(p));
+      dot.setAttribute("cx", pt.x); dot.setAttribute("cy", pt.y);
+      dot.setAttribute("opacity", p < .12 ? p/.12 : (p > .88 ? (1-p)/.12 : 1));
+    });
+    dot.remove();
+  }
+
+  function residueChip(svg, x, y, w, cells, mutations){
+    const h = 16;
+    const g = el("g", { class:"chip-glow" }, svg);
+    g.style.setProperty("--g", 0);
+    el("rect",{ x, y, width:w, height:h, rx:6, fill:"#101714", stroke:"rgba(170,200,185,.16)", "stroke-width":1 }, g);
+    const pad = 6, cw = (w - pad*2) / cells, ch = h - 7;
+    for (let i=0;i<cells;i++){
+      const mut = mutations && mutations.includes(i);
+      el("rect",{ x:x+pad+i*cw+0.6, y:y+3.5, width:cw-1.2, height:ch, rx:1.4,
+        fill: mut ? "#e3b34a" : "#27332c",
+        stroke: mut ? "rgba(227,179,74,.5)" : "rgba(255,255,255,.05)", "stroke-width":.6 }, g);
+    }
+    return {
+      g,
+      setGlow(v){ g.style.setProperty("--g", v); },
+      setOpacity(v){ g.setAttribute("opacity", v); },
+      move(dx,dy){ g.setAttribute("transform", `translate(${dx},${dy})`); }
+    };
+  }
+
+  /* ----- PANEL 1: MEASURE ----- */
+  function Panel1(svg, capEl){
+    const proteinG = el("g", { class:"lum-glow" }, svg);
+    proteinG.style.setProperty("--lum", 0);
+    const bx=110, by=48, bw=80, bh=86, brx=24;
+    el("rect",{ x:bx, y:by, width:bw, height:bh, rx:brx, fill:"#243029", stroke:"rgba(170,200,185,.22)", "stroke-width":1.2 }, proteinG);
+    for (let i=1;i<4;i++) el("line",{ x1:bx+i*(bw/4), y1:by+8, x2:bx+i*(bw/4), y2:by+bh-8, stroke:"rgba(170,200,185,.12)", "stroke-width":1 }, proteinG);
+    const barrelBright = el("rect",{ x:bx, y:by, width:bw, height:bh, rx:brx, fill:"#54e792", opacity:0 }, proteinG);
+    const chromo = el("circle",{ cx:bx+bw/2, cy:by+bh/2, r:9, fill:"#2e3d34", opacity:.9 }, proteinG);
+    el("path",{ d:`M${bx-6},${by+bh-14} q-22,4 -20,26 q2,18 22,16 q14,-2 12,-20`, fill:"#1c2620", stroke:"rgba(170,200,185,.2)", "stroke-width":1 }, proteinG);
+    const sites = [ {x:bx-22,y:by+bh-6}, {x:bx-14,y:by+bh+10}, {x:bx-2,y:by+bh+16}, {x:bx-24,y:by+bh+12} ];
+    sites.forEach(s => el("circle",{ cx:s.x, cy:s.y, r:2.4, fill:"#2c3a32", stroke:"rgba(125,240,173,.4)", "stroke-width":.7 }, proteinG));
+    const ionStart = [ {x:18,y:60}, {x:26,y:110}, {x:14,y:150}, {x:32,y:185} ];
+    const ions = ionStart.map((p,i) => {
+      const g = el("g", {}, svg);
+      el("circle",{ cx:0, cy:0, r:8, fill:"#0e1714", stroke:"#7df0ad", "stroke-width":1 }, g);
+      el("text",{ x:0, y:3, "text-anchor":"middle", fill:"#cfe9d8", "font-family":"var(--mono)", "font-size":"7.5" }, g).textContent = "Ca²⁺";
+      g.setAttribute("transform", `translate(${p.x},${p.y})`);
+      return { g, start:p, target:sites[i] };
+    });
+
+    const px0=30, pBase=332, pW=256, pAmp=120, pTop=pBase-pAmp;
+    el("line",{ x1:px0, y1:pBase, x2:px0+pW, y2:pBase, stroke:"rgba(170,200,185,.22)", "stroke-width":1 }, svg);
+    el("line",{ x1:px0, y1:pTop-6, x2:px0, y2:pBase, stroke:"rgba(170,200,185,.18)", "stroke-width":1 }, svg);
+    el("text",{ x:px0-4, y:pTop, "text-anchor":"end", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8", transform:`rotate(-90 ${px0-4} ${pTop})` }, svg).textContent = "ΔF/F";
+    el("text",{ x:px0+pW, y:pBase+12, "text-anchor":"end", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8" }, svg).textContent = "time →";
+
+    // ---- single action-potential transient (one AP, not a train) ----
+    const STIM_T = 0.34;                 // later onset → peak sits nearer the middle
+    const stims = [ {t:STIM_T, a:1.0} ];
+    const samples = traceSamples(stims, 0.014, 0.135, 240, 0);
+    // locate the peak and the half-decay point on the normalised trace
+    let peakIdx = 0;
+    for (let i=1;i<samples.length;i++) if (samples[i] > samples[peakIdx]) peakIdx = i;
+    let halfIdx = peakIdx;
+    for (let i=peakIdx;i<samples.length;i++){ if (samples[i] <= 0.5){ halfIdx = i; break; } }
+    const peakT = peakIdx/(samples.length-1), halfT = halfIdx/(samples.length-1);
+    const xStim = px0 + STIM_T*pW, xPeak = px0 + peakT*pW, xHalf = px0 + halfT*pW;
+    const yPk = pBase - pAmp, yHf = pBase - 0.5*pAmp, yLow = pBase - 16;
+
+    // single stimulus marker on the time axis
+    el("line",{ x1:xStim, y1:pBase+2, x2:xStim, y2:pBase+9, stroke:"#1f7a4d", "stroke-width":1.6 }, svg);
+    el("text",{ x:xStim, y:pBase+19, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"7.5" }, svg).textContent = "1 AP";
+
+    const path = el("path",{ d:tracePath(samples, px0, pBase, pW, pAmp), fill:"none", stroke:"#3fdd86", "stroke-width":2.4, "stroke-linecap":"round" }, svg);
+    path.style.filter = "drop-shadow(0 0 4px rgba(63,221,134,.5))";
+    const L = path.getTotalLength();
+    path.style.strokeDasharray = L; path.style.strokeDashoffset = L;
+    const marker = el("circle",{ cx:px0, cy:pBase, r:5, fill:"#bff7d6" }, svg);
+    marker.style.filter = "drop-shadow(0 0 7px rgba(63,221,134,1))";
+    marker.setAttribute("opacity", 0);
+
+    // ---- ΔF (vertical amplitude) and half-decay-time annotations (fade in after the trace) ----
+    const annoG = el("g", {}, svg); annoG.setAttribute("opacity", 0);
+    const ALINE = "rgba(125,240,173,.55)", AGUIDE = "rgba(125,240,173,.35)", ATXT = "#bcd3c6";
+    // ΔF: vertical line from baseline up to the peak, at the peak time
+    el("line",{ x1:xPeak, y1:pBase, x2:xPeak, y2:yPk, stroke:ALINE, "stroke-width":1, "stroke-dasharray":"4 3" }, annoG);
+    el("line",{ x1:xPeak-3, y1:yPk,   x2:xPeak+3, y2:yPk,   stroke:ALINE, "stroke-width":1 }, annoG);
+    el("line",{ x1:xPeak-3, y1:pBase, x2:xPeak+3, y2:pBase, stroke:ALINE, "stroke-width":1 }, annoG);
+    el("text",{ x:xPeak+6, y:(pBase+yPk)/2+3, "text-anchor":"start", fill:ATXT, "font-family":"var(--mono)", "font-size":"9.5" }, annoG).textContent = "ΔF";
+    // half-decay time: low dashed span (peak-time → half-amplitude time), just above the axis
+    el("line",{ x1:xHalf, y1:yHf, x2:xHalf, y2:yLow, stroke:AGUIDE, "stroke-width":.8, "stroke-dasharray":"2 3" }, annoG);
+    el("line",{ x1:xPeak, y1:yLow, x2:xHalf, y2:yLow, stroke:ALINE, "stroke-width":1, "stroke-dasharray":"4 3" }, annoG);
+    el("line",{ x1:xPeak, y1:yLow-3, x2:xPeak, y2:yLow+3, stroke:ALINE, "stroke-width":1 }, annoG);
+    el("line",{ x1:xHalf, y1:yLow-3, x2:xHalf, y2:yLow+3, stroke:ALINE, "stroke-width":1 }, annoG);
+    el("text",{ x:(xPeak+xHalf)/2, y:yLow-5, "text-anchor":"middle", fill:ATXT, "font-family":"var(--mono)", "font-size":"8.5" }, annoG).textContent = "t½";
+
+    function reset(){
+      proteinG.style.setProperty("--lum", 0); barrelBright.setAttribute("opacity", 0);
+      chromo.setAttribute("fill", "#2e3d34");
+      ions.forEach(io => { io.g.setAttribute("transform", `translate(${io.start.x},${io.start.y})`); io.g.setAttribute("opacity",1); });
+      path.style.strokeDashoffset = L;
+      marker.setAttribute("opacity", 0); marker.setAttribute("cx", px0); marker.setAttribute("cy", pBase);
+      annoG.setAttribute("opacity", 0);
+      capEl.textContent = "";
+    }
+    async function play(){
+      const T = 1200, dockMs = STIM_T * T;     // double the previous speed
+      capEl.textContent = "recording baseline";
+      marker.setAttribute("opacity", 1);
+      if (REDUCE){
+        ions.forEach(io => io.g.setAttribute("transform", `translate(${io.target.x},${io.target.y})`));
+        path.style.strokeDashoffset = 0;
+        const end = path.getPointAtLength(L); marker.setAttribute("cx", end.x); marker.setAttribute("cy", end.y);
+        proteinG.style.setProperty("--lum", 0); barrelBright.setAttribute("opacity", 0);
+        annoG.setAttribute("opacity", 1);
+        capEl.textContent = "ΔF and half-decay time";
+        return;
+      }
+      // ions travel during the flat baseline and dock exactly as the transient begins
+      clock.run(dockMs, p => {
+        const e = easeInOut(p);
+        ions.forEach(io => io.g.setAttribute("transform", `translate(${io.start.x+(io.target.x-io.start.x)*e},${io.start.y+(io.target.y-io.start.y)*e})`));
+      });
+      clock.sleep(dockMs).then(() => { capEl.textContent = "Ca²⁺ binds · sensor fluoresces"; });
+      // the marker tracks from t=0 (a flat line first); the glow follows the trace value
+      await clock.run(T, (p) => {
+        path.style.strokeDashoffset = L * (1 - p);
+        const pt = path.getPointAtLength(L * p);
+        marker.setAttribute("cx", pt.x); marker.setAttribute("cy", pt.y);
+        const v = samples[Math.min(samples.length-1, Math.round(p * (samples.length-1)))];
+        proteinG.style.setProperty("--lum", v); barrelBright.setAttribute("opacity", v);
+      });
+      proteinG.style.setProperty("--lum", 0); barrelBright.setAttribute("opacity", 0);
+      capEl.textContent = "ΔF and half-decay time";
+      await clock.run(400, p => annoG.setAttribute("opacity", p));
+    }
+    reset();
+    return { play, reset };
+  }
+
+  /* ----- PANEL 2: MODEL ----- */
+  function Panel2(svg, capEl){
+    // ----- INPUT: a protein sequence + its measured ΔF/F and decay -----
+    el("text",{ x:150, y:22, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8.5" }, svg).textContent = "input — sequence + measured";
+    el("rect",{ x:46, y:30, width:208, height:64, rx:10, fill:"rgba(255,255,255,.02)", stroke:"rgba(170,200,185,.20)", "stroke-width":1 }, svg);
+    const seq = residueChip(svg, 58, 40, 184, 14, [7]);
+    seq.setGlow(0.1);
+
+    // a metric pill — measured (dashed, muted) vs predicted (solid, green glow)
+    function pill(x, y, w, h, label, predicted){
+      const g = el("g", {}, svg);
+      el("rect",{ x, y, width:w, height:h, rx:6,
+        fill: predicted ? "rgba(63,221,134,.13)" : "rgba(170,200,185,.05)",
+        stroke: predicted ? "rgba(125,240,173,.65)" : "rgba(170,200,185,.32)",
+        "stroke-width": predicted ? 1.3 : 1,
+        "stroke-dasharray": predicted ? "none" : "3 2" }, g);
+      el("text",{ x:x+w/2, y:y+h/2+3, "text-anchor":"middle",
+        fill: predicted ? "#c8f7dd" : "#8aa295",
+        "font-family":"var(--mono)", "font-size":"8.5" }, g).textContent = label;
+      return g;
+    }
+    pill(58, 66, 86, 20, "ΔF/F", false);
+    pill(156, 66, 86, 20, "decay", false);
+
+    // ----- MODEL (reused component) -----
+    const box = ModelBox(svg, 150, 170, 150, 78);
+
+    // faint connectors in / out
+    el("line",{ x1:150, y1:94,  x2:150, y2:131, stroke:"rgba(170,200,185,.18)", "stroke-width":1 }, svg);
+    el("line",{ x1:150, y1:209, x2:150, y2:262, stroke:"rgba(170,200,185,.18)", "stroke-width":1 }, svg);
+
+    // ----- OUTPUT: predicted ΔF/F and decay (distinct styling = solid + glow) -----
+    el("text",{ x:150, y:252, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8.5" }, svg).textContent = "output — predicted";
+    const outDF = pill(58, 262, 86, 26, "ΔF/F", true);
+    const outDk = pill(156, 262, 86, 26, "decay", true);
+    [outDF, outDk].forEach(g => g.setAttribute("opacity", 0));
+
+    function reset(){
+      box.reset();
+      [outDF, outDk].forEach(g => { g.setAttribute("opacity", 0); g.style.filter = "none"; });
+      capEl.textContent = "";
+    }
+    async function play(){
+      capEl.textContent = "sequence → model";
+      await flowPulse(svg, 150, 94, 150, 131);
+      await box.pulse(850);
+      capEl.textContent = "predicting ΔF/F · decay";
+      await flowPulse(svg, 150, 209, 150, 262, 450);
+      for (const g of [outDF, outDk]){
+        g.style.filter = "drop-shadow(0 0 8px rgba(63,221,134,.55))";
+        if (REDUCE){ g.setAttribute("opacity", 1); }
+        else { await clock.run(280, p => g.setAttribute("opacity", p)); }
+      }
+      capEl.textContent = "ΔF/F · decay predicted";
+    }
+    reset();
+    return { play, reset };
+  }
+
+  /* ----- PANEL 3: EVOLVE -----
+     The surrogate model (Panel 2's ModelBox) is nested inside a larger
+     "in silico evolution" box that also proposes mutations and ranks them.
+     A loop-back arrow implies iteration. */
+  function Panel3(svg, capEl){
+    // starting sequence (the parent — no mutations)
+    el("text",{ x:150, y:14, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8.5" }, svg).textContent = "starting sequence";
+    const input = residueChip(svg, 90, 20, 120, 14, []);
+    input.setGlow(0.22);
+    el("line",{ x1:150, y1:36, x2:150, y2:50, stroke:"rgba(170,200,185,.18)", "stroke-width":1 }, svg);
+
+    // ----- OUTER BOX: in silico evolution -----
+    el("rect",{ x:40, y:50, width:220, height:192, rx:16, fill:"rgba(125,240,173,.03)", stroke:"rgba(125,240,173,.22)", "stroke-width":1.2 }, svg);
+    const title = el("text",{ x:150, y:64, "text-anchor":"middle", fill:"#7aa992", "font-family":"var(--mono)", "font-size":"9" }, svg);
+    el("tspan",{ "font-style":"italic" }, title).textContent = "in silico";
+    title.appendChild(document.createTextNode(" evolution"));
+
+    // stage 1 — propose a mutated candidate (amber cells)
+    el("text",{ x:150, y:80, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8" }, svg).textContent = "propose";
+    const cand = residueChip(svg, 100, 84, 100, 12, [3,8]);
+    cand.setOpacity(0); cand.setGlow(0);
+    el("line",{ x1:150, y1:100, x2:150, y2:111, stroke:"rgba(170,200,185,.16)", "stroke-width":1 }, svg);
+
+    // stage 2 — surrogate model (the reused Panel-2 component, nested)
+    const box = ModelBox(svg, 150, 139, 124, 56);
+    el("line",{ x1:150, y1:167, x2:150, y2:181, stroke:"rgba(170,200,185,.16)", "stroke-width":1 }, svg);
+
+    // stage 3 — rank (sorted bars; brightest = best predicted)
+    el("text",{ x:150, y:184, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8" }, svg).textContent = "rank";
+    el("line",{ x1:116, y1:190, x2:116, y2:230, stroke:"rgba(170,200,185,.18)", "stroke-width":1 }, svg);
+    const barSpecs = [
+      { y:192, w:74, fill:"#54e792" }, { y:203, w:56, fill:"#3fa86b" },
+      { y:214, w:40, fill:"#2f7d50" }, { y:225, w:26, fill:"#2a5f42" },
+    ];
+    const bars = barSpecs.map(b => el("rect",{ x:118, y:b.y, width:0, height:5, rx:1.5, fill:b.fill }, svg));
+
+    // loop-back arrow (rank -> propose), routed through the right margin
+    const loop = el("path",{ d:"M234,214 H276 V94 H206", fill:"none",
+      stroke:"rgba(125,240,173,.28)", "stroke-width":1.1, "stroke-dasharray":"3 3" }, svg);
+    el("polyline",{ points:"214,89 206,94 214,99", fill:"none",
+      stroke:"rgba(125,240,173,.5)", "stroke-width":1.1, "stroke-linecap":"round", "stroke-linejoin":"round" }, svg);
+    el("text",{ x:288, y:154, "text-anchor":"middle", fill:"#6f827a",
+      "font-family":"var(--mono)", "font-size":"7.5", transform:"rotate(-90 288 154)" }, svg).textContent = "iterate";
+
+    el("line",{ x1:150, y1:242, x2:150, y2:254, stroke:"rgba(170,200,185,.18)", "stroke-width":1 }, svg);
+
+    // ----- OUTPUT: top-ranked variants -----
+    el("text",{ x:150, y:262, "text-anchor":"middle", fill:"#6f827a", "font-family":"var(--mono)", "font-size":"8.5" }, svg).textContent = "top-ranked variants";
+    const outSpecs = [
+      { y:270, mut:[4,9],  g:1.0 },
+      { y:294, mut:[7],    g:0.8 },
+      { y:318, mut:[2,12], g:0.62 },
+    ];
+    const outs = outSpecs.map(o => {
+      const chip = residueChip(svg, 90, o.y, 120, 14, o.mut);
+      chip.setOpacity(0); chip.setGlow(0);
+      return { chip, spec:o };
+    });
+
+    function reset(){
+      box.reset();
+      input.setGlow(0.22);
+      cand.setOpacity(0); cand.setGlow(0);
+      bars.forEach(b => b.setAttribute("width", 0));
+      outs.forEach(o => { o.chip.setOpacity(0); o.chip.setGlow(0); o.chip.move(0,-8); });
+      capEl.textContent = "";
+    }
+
+    async function play(){
+      // 1. starting sequence enters the loop
+      capEl.textContent = "starting sequence";
+      input.setGlow(0.4);
+      await flowPulse(svg, 150, 36, 150, 84);
+      // 2. propose a mutated candidate
+      capEl.textContent = "propose mutations";
+      cand.setGlow(0.25);
+      if (REDUCE){ cand.setOpacity(1); }
+      else { await clock.run(300, p => cand.setOpacity(p)); }
+      await flowPulse(svg, 150, 100, 150, 111, 300);
+      // 3. surrogate predicts fitness
+      capEl.textContent = "predict fitness";
+      await box.pulse(800);
+      await flowPulse(svg, 150, 167, 150, 190, 380);
+      // 4. rank the proposals
+      capEl.textContent = "rank by prediction";
+      for (let i=0;i<bars.length;i++){
+        const target = barSpecs[i].w;
+        if (REDUCE){ bars[i].setAttribute("width", target); }
+        else { await clock.run(220, p => bars[i].setAttribute("width", target*easeInOut(p))); }
+      }
+      // 5. emit the top-ranked variants
+      capEl.textContent = "select top variants";
+      await flowPulse(svg, 150, 242, 150, 266, 380);
+      for (let i=0;i<outs.length;i++){
+        const o = outs[i];
+        if (REDUCE){ o.chip.setOpacity(1); o.chip.setGlow(o.spec.g); o.chip.move(0,0); }
+        else { await clock.run(280, p => { o.chip.setOpacity(p); o.chip.move(0, -8*(1-easeInOut(p))); o.chip.setGlow(o.spec.g * p); }); }
+      }
+      // 6. imply iteration — a dot travels the loop back to "propose"
+      capEl.textContent = "iterate";
+      await flowAlongPath(svg, loop, 700);
+      capEl.textContent = "top variants proposed";
+    }
+
+    reset();
+    return { play, reset };
+  }
+
+  /* ----- ORCHESTRATOR ----- */
+  const p1 = Panel1(document.getElementById("svg1"), document.getElementById("cap1"));
+  const p2 = Panel2(document.getElementById("svg2"), document.getElementById("cap2"));
+  const p3 = Panel3(document.getElementById("svg3"), document.getElementById("cap3"));
+  const panels = [document.getElementById("p1"), document.getElementById("p2"), document.getElementById("p3")];
+  const conns = [
+    [document.getElementById("cp1"), document.getElementById("ch1")],
+    [document.getElementById("cp2"), document.getElementById("ch2")],
+  ];
+  let playing = false;
+
+  function setConn(pair, shown){
+    pair.forEach(p => {
+      const len = p.getTotalLength();
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = shown ? 0 : len;
+      p.style.transition = "stroke-dashoffset .45s var(--ease)";
+    });
+  }
+  function hardReset(){
+    clock.cancelAll();
+    panels.forEach(p => p.classList.remove("on"));
+    conns.forEach(c => setConn(c, false));
+    p1.reset(); p2.reset(); p3.reset();
+  }
+
+  /* Each panel appears, plays its animation + caption fully, THEN the next appears. */
+  async function runSequence(){
+    if (playing) return;
+    playing = true;
+    hardReset();
+    await clock.sleep(REDUCE ? 0 : 200);
+    panels[0].classList.add("on");  await clock.sleep(REDUCE?0:650);   // panel fades in first
+    await p1.play();
+    setConn(conns[0], true);        await clock.sleep(REDUCE?0:450);
+    panels[1].classList.add("on");  await clock.sleep(REDUCE?0:650);
+    await p2.play();
+    setConn(conns[1], true);        await clock.sleep(REDUCE?0:450);
+    panels[2].classList.add("on");  await clock.sleep(REDUCE?0:650);
+    await p3.play();
+    playing = false;
+  }
+
+  /* ---------- open / close ----------
+     Embedded in index.html (inside an iframe): waits for the parent to say
+     "lights-off", and tells the parent "lights-on" when the user exits.
+     Opened on its own (pipeline.html directly): shows the dark stage and plays,
+     and the button replays. */
+  const overlay  = document.getElementById("lightsOverlay");
+  const closeBtn = document.getElementById("lightsClose");
+  const embedded = new URLSearchParams(location.search).has("embed");
+
+  async function openLights(){
+    if (overlay.classList.contains("on")) return;
+    hardReset();
+    document.body.classList.add("no-scroll");
+    overlay.classList.add("on");
+    overlay.setAttribute("aria-hidden", "false");
+    closeBtn.focus({ preventScroll:true });
+    await clock.sleep(REDUCE ? 0 : 850);   // let the page fade to dark first
+    runSequence();
+  }
+  function closeLights(notify){
+    clock.cancelAll(); playing = false;
+    overlay.classList.remove("on");
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("no-scroll");
+    hardReset();
+    if (embedded && notify) parent.postMessage({ type:"lights-on" }, "*");
+  }
+  function exitOrReplay(){
+    if (embedded) closeLights(true);
+    else { hardReset(); openLights(); }    // standalone: replay
+  }
+  closeBtn.addEventListener("click", exitOrReplay);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") exitOrReplay(); });
+
+  if (embedded){
+    window.addEventListener("message", e => {
+      if (!e.data) return;
+      if (e.data.type === "lights-off") openLights();
+      if (e.data.type === "lights-on")  closeLights(false);
+    });
+  } else {
+    document.documentElement.style.background = "#06090a";
+    document.body.style.background = "#06090a";
+    closeBtn.textContent = "↺ replay";
+    openLights();
+  }
+
+  hardReset();
+})();
+</script>
+</body>
+</html>
