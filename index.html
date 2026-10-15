@@ -126,13 +126,13 @@
     font-size:.92rem; color:var(--ink-soft); font-weight:500;
   }
   .navlinks a:hover{ color:var(--ink); }
-  .cv-btn{
+  .navlinks .cv-btn{
     font-family:var(--mono); font-size:.78rem; letter-spacing:.04em;
     border:1px solid var(--ink); color:var(--ink);
     padding:.42rem .8rem; border-radius:6px;
     transition:background .2s var(--ease), color .2s var(--ease);
   }
-  .cv-btn:hover{ background:var(--ink); color:var(--paper); }
+  .navlinks .cv-btn:hover{ background:var(--ink); color:var(--paper); }
   .lights-btn{
     display:inline-flex; align-items:center; justify-content:center;
     background:none; border:1px solid var(--line); color:var(--ink-soft);
@@ -313,7 +313,7 @@
 
   /* Personal / "what I look at" strip */
   .gallery{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
-  .fig{ }
+  /* .fig{ } */
   .fig__photo{ display:block; width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:10px; border:1px solid var(--line); }
   .fig__ph{                            /* shown only until the asset exists */
     display:none; aspect-ratio:4/3; border-radius:10px; border:1px solid var(--line);
@@ -394,6 +394,7 @@
       <a href="#projects">Projects</a>
       <a href="#about">Background</a>
       <a href="#future">Future</a>
+      <a class="cv-btn" href="assets/resume.pdf" target="_blank" rel="noopener">CV</a>
     </nav>
   </div>
 </header>
